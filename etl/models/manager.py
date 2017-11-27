@@ -3,9 +3,9 @@
 # For copyright and license notices, see __openerp__.py file in module root
 # directory
 ##############################################################################
-from openerp import models, fields, api, _
-from openerp.exceptions import Warning
-from erppeek import Client
+from odoo import models, fields, api, _
+from odoo.exceptions import Warning
+import odoorpc
 from ast import literal_eval
 import logging
 _logger = logging.getLogger(__name__)
@@ -20,6 +20,11 @@ class manager(models.Model):
     name = fields.Char(
         string='Name',
         required=True
+        )
+    source_version = fields.Char(
+        string='Source Hostname',
+        required=True,
+        default='8',
         )
     source_hostname = fields.Char(
         string='Source Hostname',
@@ -41,6 +46,11 @@ class manager(models.Model):
     source_password = fields.Char(
         string='Source Password',
         required=True
+        )
+    target_version = fields.Char(
+        string='Target Version',
+        required=True,
+        default='11',
         )
     target_hostname = fields.Char(
         string='Target Hostname',
@@ -167,22 +177,16 @@ class manager(models.Model):
         self.ensure_one()
         try:
             _logger.info('Getting source connection')
-            source_connection = Client(
-                '%s:%i' % (self.source_hostname, self.source_port),
-                db=self.source_database,
-                user=self.source_login,
-                password=self.source_password)
-        except Exception, e:
+            source_connection = odoorpc.ODOO(self.source_hostname, port=int(self.source_port))
+            source_connection.login(self.source_database, self.source_login, self.source_password)
+        except Exception as e:
             raise Warning(
                 _("Unable to Connect to Database. 'Error: %s'") % e)
         try:
-            _logger.info('Getting target connection')
-            target_connection = Client(
-                '%s:%i' % (self.target_hostname, self.target_port),
-                db=self.target_database,
-                user=self.target_login,
-                password=self.target_password)
-        except Exception, e:
+            _logger.info('Getting target connection')            
+            target_connection = odoorpc.ODOO(self.target_hostname, port=int(self.target_port))
+            target_connection.login(self.target_database, self.target_login, self.target_password)
+        except Exception as e:
             raise Warning(
                 _("Unable to Connect to Database. 'Error: %s'") % e)
         return [source_connection, target_connection]
@@ -200,7 +204,7 @@ class manager(models.Model):
     @api.one
     def delete_workflows(self):
         (source_connection, target_connection) = self.open_connections()
-        target_wf_instance_obj = target_connection.model("workflow.instance")
+        target_wf_instance_obj = target_connection.env['workflow.instance']
         res_types = literal_eval(self.workflow_models)
         target_wf_instance_ids = target_wf_instance_obj.search(
             [('res_type', 'in', res_types)])
@@ -209,7 +213,7 @@ class manager(models.Model):
     @api.one
     def install_modules(self):
         (source_connection, target_connection) = self.open_connections()
-        target_module_obj = target_connection.model("ir.module.module")
+        target_module_obj = target_connection.env['ir.module.module']
         modules = literal_eval(self.modules_to_install)
         domain = [('name', 'in', modules)]
         target_module_ids = target_module_obj.search(domain)
@@ -222,7 +226,8 @@ class manager(models.Model):
         actions = self.env['etl.action'].search(
             [('manager_id', '=', self.id), ('state', '=', 'enabled')],
             order='sequence')
-        actions.run_action(source_connection, target_connection)
+        for action in actions:
+            action.run_action(source_connection, target_connection)
 
     @api.one
     def run_repeated_actions(self):
@@ -233,7 +238,8 @@ class manager(models.Model):
             ('repeating_action', '=', True),
             ('state', '=', 'enabled')],
             order='sequence')
-        actions.run_repeated_action(source_connection, target_connection)
+        for action in actions:
+            action.run_repeated_action(source_connection, target_connection)
 
     @api.one
     def match_models_and_order_actions(self):
@@ -383,10 +389,15 @@ class manager(models.Model):
         ''' Get models for one manger and one type (source or target)'''
         res = {}
         for manager in self:
-            external_model_obj = connection.model("ir.model")
+            external_model_obj = connection.env['ir.model']
 
             # osv_memory = False for not catching transients models
-            domain = [('osv_memory', '=', False)]
+            if relation_type == 'source' and manager.source_version == '8':
+                domain = [('osv_memory', '=', False)]
+            elif relation_type == 'target' and manager.target_version == '8':
+                domain = [('osv_memory', '=', False)]
+            else:
+                domain = [('transient', '=', False)]
 
             # catch de models excpections worlds and append to search domain
             words_exception = manager.model_exception_words

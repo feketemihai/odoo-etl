@@ -3,8 +3,8 @@
 # For copyright and license notices, see __openerp__.py file in module root
 # directory
 ##############################################################################
-from openerp import models, fields, api, _
-from openerp.exceptions import Warning
+from odoo import models, fields, api, _
+from odoo.exceptions import Warning
 from ast import literal_eval
 import logging
 _logger = logging.getLogger(__name__)
@@ -82,15 +82,7 @@ class external_model(models.Model):
     _constraints = [
     ]
 
-    def _name_search(self, cr, uid, name='', args=None, operator='ilike', context=None, limit=100, name_get_uid=None):
-        if args is None:
-            args = []
-        domain = args + ['|', ('model', operator, name), ('name', operator, name)]
-        return self.name_get(cr, name_get_uid or uid,
-                             super(external_model, self).search(cr, uid, domain, limit=limit, context=context),
-                             context=context)
-
-    @api.one
+    @api.multi
     def read_records(self):
         '''Function that reads external id and name field from an external
         model and save them in migrator database'''
@@ -107,7 +99,7 @@ class external_model(models.Model):
         record_fields = ['.id', 'id']
         record_fields.extend(fields_to_read)
 
-        external_model_obj = connection.model(self.model)
+        external_model_obj = connection.env[self.model]
         external_model_record_ids = external_model_obj.search([])
         external_model_record_data = external_model_obj.export_data(
             external_model_record_ids, record_fields)['datas']
@@ -164,7 +156,7 @@ class external_model(models.Model):
                     connection = target_connection
                 else:
                     raise Warning(_('Error getting connection'))
-            external_model_obj = connection.model(model.model)
+            external_model_obj = connection.env[model.model]
             try:
                 external_model_fields = external_model_obj.fields_get()
             except:
@@ -196,7 +188,7 @@ class external_model(models.Model):
     @api.one
     def get_records(self, connection):
         try:
-            model_obj = connection.model(self.model)
+            model_obj = connection.env[self.model]
             model_ids = model_obj.search([])
             vals = {'records': len(model_ids)}
             _logger.info('%i records on model %s' % (

@@ -3,8 +3,8 @@
 # For copyright and license notices, see __openerp__.py file in module root
 # directory
 ##############################################################################
-from openerp import models, fields, api, _
-from openerp.exceptions import Warning
+from odoo import models, fields, api, _
+from odoo.exceptions import Warning
 
 
 class value_mapping_field(models.Model):
@@ -15,7 +15,6 @@ class value_mapping_field(models.Model):
 
     name = fields.Char(
         string='Field Name',
-        required=True
         )
     type = fields.Selection(
         [(u'id', u'Id'), (u'char', u'Char (not implemented yet)'), (u'selection', u'Selection')],
@@ -60,6 +59,11 @@ class value_mapping_field(models.Model):
             domain = [
                 ('external_model_id', '=', self.target_model_id.id),
                 ('name', 'ilike', source_record.name)]
+            if self.source_model_id.manager_id.target_id_type == 'builded_id' and \
+                            source_data_m2o[0][2]:
+                        new_field_value = str('%s_%s' % (
+                            field_action.target_id_prefix,
+                            str(source_data_m2o[0][2])))
             target_record = self.env[
                 'etl.external_model_record'].search(domain, limit=1)
             value_mapping_data.append([

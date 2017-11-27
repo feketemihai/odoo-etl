@@ -3,10 +3,10 @@
 # For copyright and license notices, see __openerp__.py file in module root
 # directory
 ##############################################################################
-from openerp import models, fields, api, _
-from openerp.exceptions import Warning
+from odoo import models, fields, api, _
+from odoo.exceptions import Warning
 import time
-from openerp.tools.safe_eval import safe_eval as eval
+from odoo.tools.safe_eval import safe_eval as eval
 import logging
 _logger = logging.getLogger(__name__)
 
@@ -133,9 +133,9 @@ class field_mapping(models.Model):
         for field_mapping in self:
             if not source_connection or not target_connection:
                 (source_connection, target_connection) = field_mapping.action_id.manager_id.open_connections()
-            source_model_obj = source_connection.model(
-                field_mapping.action_id.source_model_id.model)
-            target_ir_model_data_obj = target_connection.model('ir.model.data')
+            source_model_obj = source_connection.env[
+                field_mapping.action_id.source_model_id.model]
+            target_ir_model_data_obj = target_connection.env['ir.model.data']
             source_fields = [
                 'id',
                 field_mapping.source_field_id.name,
@@ -148,8 +148,8 @@ class field_mapping(models.Model):
             if source_model_data:
                 source_id = source_model_data[0][1]
                 try:
-                    source_resource_obj = source_connection.model(
-                        source_model_data[0][2])
+                    source_resource_obj = source_connection.env[
+                        source_model_data[0][2]]
                 except:
                     target_id = False
                 else:
@@ -158,7 +158,7 @@ class field_mapping(models.Model):
                     if source_reference[0]:
                         source_reference_splited = source_reference[0][0].split(
                             '.', 1)
-                        print 'source_reference_splited', source_reference_splited
+                        print('source_reference_splited', source_reference_splited)
                         if len(source_reference_splited) == 1:
                             module = False
                             external_ref = source_reference_splited[0]
@@ -189,9 +189,9 @@ class field_mapping(models.Model):
         for field_mapping in self:
             if not source_connection or not target_connection:
                 (source_connection, target_connection) = field_mapping.action_id.manager_id.open_connections()
-            source_model_obj = source_connection.model(
-                field_mapping.action_id.source_model_id.model)
-            target_ir_model_data_obj = target_connection.model('ir.model.data')
+            source_model_obj = source_connection.env[
+                field_mapping.action_id.source_model_id.model]
+            target_ir_model_data_obj = target_connection.env['ir.model.data']
             source_fields = [field_mapping.source_field_id.name]
             source_model_data = source_model_obj.read(
                 [rec_id], source_fields)[0]
@@ -202,7 +202,7 @@ class field_mapping(models.Model):
                 if source_reference:
                     model, res_id = source_reference.split(',', 1)
                     try:
-                        source_resource_obj = source_connection.model(model)
+                        source_resource_obj = source_connection.env[model]
                     except:
                         target_id = False
                     else:
@@ -242,10 +242,10 @@ class field_mapping(models.Model):
             expression_result = False
             if not source_connection or not target_connection:
                 (source_connection, target_connection) = field_mapping.action_id.manager_id.open_connections()
-            source_model_obj = source_connection.model(
-                field_mapping.action_id.source_model_id.model)
-            target_model_obj = target_connection.model(
-                field_mapping.action_id.target_model_id.model)
+            source_model_obj = source_connection.env[
+                field_mapping.action_id.source_model_id.model]
+            target_model_obj = target_connection.env[
+                field_mapping.action_id.target_model_id.model]
 
             obj_pool = source_model_obj
             cxt = {
